@@ -10,8 +10,8 @@ Usage:
     # Share with ALL top-level groups
     python share_approvers_group.py --shared-group-id 123
 
-    # Share with ONE group only
-    python share_approvers_group.py --shared-group-id 123 --group-id 456
+    # Share with specific groups only
+    python share_approvers_group.py --shared-group-id 123 --group-ids 456 789 1011
 
     # Preview only, no changes
     python share_approvers_group.py --shared-group-id 123 --dry-run
@@ -98,8 +98,8 @@ def main():
     parser = argparse.ArgumentParser(description="Share a group with top-level groups.")
     parser.add_argument("--shared-group-id", type=int, required=True,
                         help="ID of the group to share (e.g. Approvers)")
-    parser.add_argument("--group-id", type=int,
-                        help="Optional: share with this one top-level group only")
+    parser.add_argument("--group-ids", type=int, nargs="+",
+                        help="Optional: share with these top-level group IDs only (space-separated)")
     parser.add_argument("--access-level", default="developer", choices=ACCESS_LEVELS,
                         help="Role the shared group gets (default: developer)")
     parser.add_argument("--dry-run", action="store_true",
@@ -125,8 +125,8 @@ def main():
     logging.info("Shared group: %s (id=%s), access level: %s, dry-run: %s",
                  shared_group.full_path, shared_group.id, args.access_level, args.dry_run)
 
-    if args.group_id:
-        target_ids = [args.group_id]
+    if args.group_ids:
+        target_ids = list(dict.fromkeys(args.group_ids))  # remove duplicates, keep order
     else:
         target_ids = [g.id for g in gl.groups.list(top_level_only=True, iterator=True)]
     logging.info("Groups to process: %d", len(target_ids))

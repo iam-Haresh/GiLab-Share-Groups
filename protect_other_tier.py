@@ -17,8 +17,8 @@ Usage:
     # Exclude groups by ID, name or full path
     python protect_other_tier.py --exclude 456 platform-team "Sandbox Group"
 
-    # One group only
-    python protect_other_tier.py --group-id 789
+    # Specific groups only
+    python protect_other_tier.py --group-ids 789 790 791
 """
 
 import argparse
@@ -157,8 +157,8 @@ def main():
     parser.add_argument("--approver-group-id", type=int,
                         default=os.getenv("APPROVER_GROUP_ID"),
                         help="Approver group ID (default: APPROVER_GROUP_ID env var)")
-    parser.add_argument("--group-id", type=int,
-                        help="Run for this one top-level group only")
+    parser.add_argument("--group-ids", type=int, nargs="+",
+                        help="Run for these top-level group IDs only (space-separated)")
     parser.add_argument("--exclude", nargs="*", default=[],
                         help="Group IDs, names or full paths to skip")
     parser.add_argument("--required-approvals", type=int, default=1,
@@ -195,8 +195,14 @@ def main():
                      approver.full_path, approver.id, TIER, args.required_approvals,
                      args.deploy_access_level, args.dry_run, args.exclude)
 
-        if args.group_id:
-            groups = [gl.groups.get(args.group_id)]
+        groups, not_found = [], []
+        if args.group_ids:
+            for gid in dict.fromkeys(args.group_ids):  # remove duplicates, keep order
+                try:
+                    groups.append(gl.groups.get(gid))
+                except gitlab.exceptions.GitlabGetError as e:
+                    logging.error("Group id=%s not found or not accessible: %s", gid, e)
+                    not_found.append((gid, str(e)))
         else:
             groups = list(gl.groups.list(top_level_only=True, iterator=True))
         logging.info("Groups to process: %d", len(groups))
@@ -205,6 +211,15 @@ def main():
         with open(report_file, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
             writer.writeheader()
+            for gid, err in not_found:
+                writer.writerow({
+                    "timestamp": datetime.now().isoformat(timespec="seconds"),
+                    "group_id": gid, "environment_tier": TIER,
+                    "approver_group_id": approver.id,
+                    "approver_group_path": approver.full_path,
+                    "status": "FAILED", "message": f"Group not found: {err}",
+                })
+                summary["FAILED"] = summary.get("FAILED", 0) + 1
             for group in groups:
                 row = process_group(gl, group, approver, args)
                 writer.writerow(row)

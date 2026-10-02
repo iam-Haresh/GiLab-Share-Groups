@@ -34,7 +34,8 @@ export APPROVER_GROUP_ID=123   # used by protect_other_tier.py
 
 ### Common behaviour (both scripts)
 
-- **Top-level groups only:** Subgroups are skipped.
+- **Top-level groups only:** Subgroups are skipped, including any subgroup ID passed in `--group-ids`.
+- **Targeting:** With no `--group-ids`, the script runs on all top-level groups. With `--group-ids`, it runs only on the listed IDs. Duplicate IDs are ignored, and an ID that doesn't exist is reported as `FAILED` without stopping the run.
 - **Idempotent:** Existing shares and protections are detected and left unchanged, so re-running is safe.
 - **Dry run:** `--dry-run` shows what would change without changing anything.
 - **Output:** Each run creates a timestamped CSV report and a `.log` file in the current directory. The log is also printed to the console.
@@ -44,14 +45,14 @@ export APPROVER_GROUP_ID=123   # used by protect_other_tier.py
 
 ## 1. share_approvers_group.py
 
-Shares a group (e.g. Approvers) with every top-level group, or with one group ad hoc.
+Shares a group (e.g. Approvers) with every top-level group, or with a specific list of groups.
 
 ### Inputs
 
 | Argument | Required | Description |
 |---|---|---|
 | `--shared-group-id` | Yes | ID of the group to share (Approvers) |
-| `--group-id` | No | Share with this one top-level group only |
+| `--group-ids` | No | Share with these top-level group IDs only (space-separated list) |
 | `--access-level` | No | `guest`, `reporter`, `developer` (default), `maintainer` |
 | `--dry-run` | No | Preview only |
 
@@ -60,7 +61,7 @@ Shares a group (e.g. Approvers) with every top-level group, or with one group ad
 ```bash
 python share_approvers_group.py --shared-group-id 123 --dry-run
 python share_approvers_group.py --shared-group-id 123
-python share_approvers_group.py --shared-group-id 123 --group-id 456
+python share_approvers_group.py --shared-group-id 123 --group-ids 456 789 1011
 python share_approvers_group.py --shared-group-id 123 --access-level reporter
 ```
 
@@ -112,7 +113,7 @@ Creates a **group-level protected environment** for the deployment tier `other` 
 | Argument | Required | Description |
 |---|---|---|
 | `--approver-group-id` | Yes* | Approver group ID. *Can be set with the `APPROVER_GROUP_ID` env var instead |
-| `--group-id` | No | Run for this one top-level group only |
+| `--group-ids` | No | Run for these top-level group IDs only (space-separated list) |
 | `--exclude` | No | Space-separated group IDs, names or full paths to skip (case-insensitive) |
 | `--required-approvals` | No | Approvals needed from the approver group (default `1`) |
 | `--deploy-access-level` | No | Role allowed to deploy: `developer` or `maintainer` (default) |
@@ -130,8 +131,8 @@ python protect_other_tier.py
 # Exclude groups (mix of ID, name, full path; quote names with spaces)
 python protect_other_tier.py --exclude 456 platform-team "Sandbox Group"
 
-# One group only
-python protect_other_tier.py --group-id 789
+# Specific groups only
+python protect_other_tier.py --group-ids 789 790 791
 
 # Override approver group and approvals
 python protect_other_tier.py --approver-group-id 123 --required-approvals 2
